@@ -116,3 +116,5 @@ Java多线程
             1.Thread.MAX_PRIORITY ，值为10
             2.Thread.MIN_PRIORITY ，值为1
             3.Thread.NORM_PRIORITY，值为5
+
+线程同步
