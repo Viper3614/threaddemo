@@ -180,7 +180,7 @@ Java多线程
         2.synchronized修饰的同步代码块，同步监视器是括号里的对象，必须使用该对象调用
 
     二.使用Condition控制线程通信
-        当使用Lock对象控制线程同步时，就不存在饮食的同步监视器，也就不能使用wait(),notify(),notifyAll()方法了
+        当使用Lock对象控制线程同步时，就不存在隐式的同步监视器，也就不能使用wait(),notify(),notifyAll()方法了
         可以使用Condition，效果同Object类的wait(),notify(),notifyAll()方法
         Condition相当于替代了同步监视器的功能。
         Condition将同步监视器的wait(),notify(),notifyAll()方法封装成不同的对象。
@@ -202,8 +202,8 @@ Java多线程
         当插入数据成功后将调用notEmpty，这样所有在队列为空时获取数据线程唤醒。
         当移除数据成功后将调用notFull，这样所有在队列满时插入数据的线程唤醒。
         blockQueue提供了两个支持阻塞的方法
-            put(E e) : 当生产者向blockQueue中放入元素时，若该Queue中已满，则该线程被阻塞
-            take(E e) : 当消费者向blockQueue中取出元素时，若该queue中为空，则该线程被阻塞
+            put(E e) :  当生产者向blockQueue中放入元素时，若该Queue中已满，则该生产者线程被阻塞
+            take(E e) : 当消费者向blockQueue中取出元素时，若该queue中为空，则该消费者线程被阻塞
         BlockQueue继承了Queue接口，也可以使用Queue接口中的方法
             1.插入元素
                 当队列已满时：
@@ -227,3 +227,149 @@ Java多线程
             5.DelayQueue：底层基于PriorityBlockQueue实现。元素需要实现Delay接口。DelayQueue根据集合元素返回的getDalay()值进行排序
 
 线程组和未处理异常
+    Java使用ThreadGroup表示线程组。对一批线程进行管理
+    对线程组的控制等于对这批线程的控制。
+    如果没有显式指定线程属于哪个线程组，则该线程属于默认线程组
+    默认情况下，子线程和创建它的父线程属于同一线程组
+    一旦线程加入了指定线程组后，将一直属于该线程组，直到线程死亡。线程运行中不能更改它所属的线程组
+    因为不能更改线程所属的线程组，Thread类中没有提供setThreadGroup()方法。
+    Thread类提供了如下几个构造器来设置新线程的线程组：
+        1.Thread(ThreadGroup group,Runnable target)
+        2.Thread(ThreadGroup group,Runnable target,String name)
+        3.Thread(ThreadGroup group,String name)
+
+    ThreadGroup类提供了几个方法来操作整个线程组里的所有线程：
+        1.int activeCount():返回线程组中活动的线程数目
+        2.interrupt():中断此线程组中的所有线程
+        3.isDaemon():判断该线程组是否是后台线程组
+        4.setDaemon(boolean daemon):把该线程组设置为后台线程组。
+            后台线程组特点：当后台线程组的最后一个线程执行结束或最后一个线程被销毁后，后台线程组将自动销毁
+        5.setMaxPriority(int pri) : 设置线程组的最高优先级
+        6.void uncaughtException(Thread t,Throwable e):处理线程组内的任意线程所抛出的未处理异常
+            Java 5 开始，加强了线程的异常处理。
+            若线程执行中抛出了一个异常，JVM在线程执行完成之前自动查找是否有Thread.UncaughtExceptionHandler对象。
+            如果有，就会调用该对象的uncaughtException(Thread t,Throwable e)方法处理异常
+            Thread.UncaughtExceptionHandler是Thread类的静态内部接口
+
+            Thread类提供了两个方法设置异常处理器：
+                1.static setDefaultUncaughtExceptionHandler(Thread.UncaughtExceptionHandler eh):为该线程类的所有线程实例设置默认的异常处理器
+                2.setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler eh):为指定的线程实例设置异常处理器
+
+            线程组处理异常的默认流程：
+                1.如果该线程组有父线程组，则调用父线程组的uncaughtException()方法处理异常
+                2.若该线程实例所属的线程类有默认的异常处理器（由setDefaultUncaughtExceptionHandler()方法设置的异常处理器），那么就调用该异常处理器处理异常
+                3.若该异常对象是ThreadDeath对象，则不做任何处理；否则，将异常跟踪的栈信息打印到System.err错误输出流，并结束该线程
+
+
+            使用异常处理器对异常进行处理后，异常依然会传播给上一级调用者
+
+Java线程池
+    线程池的作用：
+        1.减少线程创建/销毁的系统开销
+        2.有效控制线程最大并发数，避免墙站系统资源导致的阻塞
+        3.对线程进行简单的管理，比如：延迟执行，定时循环执行的策略等
+    线程池在系统启动后创建空闲的线程，程序将一个Runnable对象或者Callable对象传给线程池
+    线程池会启动一个线程来执行run()或call()方法
+
+    Java 8 改进的线程池
+        Java 5新增了一个Executors工厂类来产生线程池，该工厂类包含了几个静态方法来创建不同的线程池
+            这三个返回 ExecutorService 对象的线程池
+                1.newCacheThreadPool():创建一个具有缓存功能的线程池，系统根据需要创建线程。这些线程会被缓存在线程池中，线程自动回收
+                2.newFixedThreadPool(int nThread):创建一个可重用的，具有固定线程数[nThread]的线程池
+                3.newSingleThreadExecutor():创建一个只有单线程的线程池。相当于创建newFixedThreadPool(int nThread)时nThread值为1
+
+                ExecutorService，只要线程池中由空闲线程，就立即执行线程任务
+                ExecutorService 中的方法：
+                    1.Future<?> submit(Runnable task):
+                        将一个Runnable对象提交给线程池。
+                        Future对象标识Runnable任务的返回值。但是Runnable执行没有返回值，Future对象在run()执行完后返回null.
+                        Future对象的 isDone(),isCancelled()方法获取Runnable对象的执行状态
+
+                    2.<T>Future<T> submit(Runnable task,T result):
+                        Future对象在run()方法执行结束后返回result
+
+                    3.<T>Future<T> submit(Callable<T> task):
+                        Future代表Callable对象里call()方法的返回值
+
+                    4.execute(Runnable commond):
+                        执行一个任务，没有返回值
+
+
+            这两个返回 ScheduleExecutorService 对象的线程池，该对象是ExecutorService的子类
+                1.newScheduledThreadPool(int corePoolSize):创建具有指定线程数的线程池，可以在指定延迟后执行线程任务
+                2.newSingleThreadScheduledExecutor():创建只有一个线程的线程池，在指定延迟后执行线程任务
+
+                ScheduleExecutorService 可在指定延迟后或周期性的执行线程任务的线程池
+                    1.ScheduledFuture<V> schedule(Callable<V> callable,long delay,TimeUnit unit):
+                        指定callable任务在指定delay延迟后执行
+
+                    2.ScheduledFuture<V> schedule(Runnable command,long delay,TimeUnit unit):
+                        指定 command 任务在指定delay延迟后执行
+
+                    3.ScheduledFuture<V> scheduleAtFixedRate(Runnable command,long initialDelay,long period,TimeUnit unit):
+                        指定 command 任务在指定delay延迟后执行，而且以设定频率重复执行。
+
+                    4.ScheduledFuture<V> scheduleAtFixedRate(Runnable command,long initialDelay,long delay,TimeUnit unit):
+                        创建并执行一个在给定初始延迟后首次启用的定期操作。
+                        随后在每一次执行终止和下一次执行开始之间都存在给定的延迟。
+                        退出任务情况：
+                            1.发生异常，错误
+                            2.通过程序显式取消或终止该任务
+
+            这两个返回 work stealing [抢占式的工作] 对象的线程池，Java 8 新增的，能够合理的使用CPU进行对任务的并行操作，适合使用在耗时的任务中
+                1.newWorkStealingPool(int parallelism):创建持有足够的线程的线程池来支持给定的并行级别，该方法还会使用多个队列来减少竞争
+                2.newWorkStrealingPool():
+
+            安全关闭线程池：
+                shutDown()：
+                    将线程池状态设置为 shutDown 状态，线程池拒绝新提交的任务，同时等待线程池里的任务执行完毕，没有执行的任务会被中断。关闭线程池
+                    确保任务里不会由永久阻塞等待的逻辑，否则线程池就关闭不了
+
+                shutDownNow():
+                    将线程池状态设置为STOP状态，线程池拒绝新提交的任务，同时立即关闭线程池，线程池中的任务不再执行，返回那些未执行的任务
+                    shutDownNow()可能会引起报错，要对异常进行捕获
+
+                shutDown()和shutDownNow()只是异步的通知线程池进行关闭处理，
+                如果需要同步等待线程池彻底关闭，需要使用awaitTermination()方法
+
+    阿里开发手册推荐使用 ThreadPoolExecutor 类来创建线程池。
+        原因：
+            1.由于jdk中Executor框架虽然提供了如newFixedThreadPool()、newSingleThreadExecutor()、newCachedThreadPool()等创建线程池的方法，但都有其局限性，不够灵活
+            2.前面几种方法内部也是通过ThreadPoolExecutor方式实现，使用ThreadPoolExecutor有助于明确线程池的运行规则，创建符合自己的业务场景需要的线程池，避免资源耗尽的风险
+
+        ThreadPoolExecutor 构造函数的参数含义：
+            1.int corePoolSize:线程池中线程的数量。即使线程处于idle也被保存在线程池内
+            2.int maxmumPoolSize:线程池中最大的线程数量。该参数受workQueue任务队列的类型决定
+            3.long keepAliveTime:线程存活时间。当线程池中线程数大于corePoolSize时，多余的线程空闲时间若超过keepAliveTime，多余的线程将被终止。
+            4.BlockQueue<Runnable> workQueue:任务队列[阻塞队列]，用于传输和保存等待执行任务的阻塞队列。
+                【若corePoolSize未满，则新建一个线程】
+                【若corePoolSize已满，workQueue 未满，则将任务添加到workQueue任务队列】
+                【若corePoolSize已满，workQueue 已满，则创建新线程。除非超过maxmumPoolSize，任务被拒绝】
+                workQueue 分为：
+                    直接提交队列
+                        workQueue 设置为 SynchronousQueue 队列。SynchronousQueue没有容量，每执行一个插入操作就会阻塞，需要再执行一个删除操作才会被唤醒。反之，亦然。
+                    有界任务队列
+
+                    无界任务队列
+                    优先任务队列
+            5.TimeUnit unit:参数keepAliveTime的时间单位。在TimeUnit类中有7种静态属性：
+                TimeUnit.DAYS;               //天
+                TimeUnit.HOURS;             //小时
+                TimeUnit.MINUTES;           //分钟
+                TimeUnit.SECONDS;           //秒
+                TimeUnit.MILLISECONDS;      //毫秒
+                TimeUnit.MICROSECONDS;      //微妙
+                TimeUnit.NANOSECONDS;       //纳秒
+            6.ThreadFactory threadFactory：线程工程，用来创建线程。
+            7.RejectedExecutionHandler handler:线程池拒绝处理任务时的策略。workQueue队列已满且poolSize[线程池中当前的线程数]等于maxmumPoolSize，触发拒绝策略
+                四种拒绝策略：
+                    ThreadPoolExecutor.AbortPolicy:丢弃任务并抛出RejectedExecutionException异常。
+                    ThreadPoolExecutor.DiscardPolicy：也是丢弃任务，但是不抛出异常。
+                    ThreadPoolExecutor.DiscardOldestPolicy：丢弃队列最前面的任务，然后重新尝试执行任务（重复此过程）
+                    ThreadPoolExecutor.CallerRunsPolicy：由调用线程处理该任务
+
+    配置线程池的大小
+        需要根据任务的类型来配置线程池的大小
+            1.CPU密集型任务：线程池大小=CPU个数+1
+            2.IO密集型任务： 线程池大小=CPU个数*2
+        这只是一个参考值，具体的设置还需要根据实际情况进行调整，比如可以先将线程池大小设置为参考值，再观察任务运行情况和系统负载、资源利用率来进行适当调整。

@@ -1,5 +1,7 @@
 package com.mxxb.mythread;
 
+import com.mxxb.mythread.threadexception.MyExHandler;
+
 /**
  * @author Viper
  * @description
@@ -11,6 +13,7 @@ public class DaemonThread extends Thread {
         DaemonThread daemon = new DaemonThread();
         daemon.setDaemon(true); //daemon设置为守护线程
         daemon.setName("daemon");
+        daemon.setUncaughtExceptionHandler(new MyExHandler());//为指定线程实例设置异常处理器
         daemon.start();
         System.out.println("daemon线程就绪");
         for (int i = 0; i < 10; i++) {
