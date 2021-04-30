@@ -164,7 +164,7 @@ Java多线程
     一.Object类提供的三个方法：
         1.wait()
             导致当前线程等待，直到其他线程调用该同步监视器的notify()或者notifyAll()来唤醒该线程。
-            调用wait()方法的当前线程会释放对该同步监视器的锁定，同时让出cpu的执行权。
+            调用wait()方法的当前线程会 释放对该同步监视器的锁定，同时让出cpu的执行权。
             该方法有三个重载方法
             wait();无参
             wait(long timeout);等待指定timeout时间后自动苏醒
@@ -186,7 +186,7 @@ Java多线程
         Condition将同步监视器的wait(),notify(),notifyAll()方法封装成不同的对象。
         Condition实例绑定在Lock对象上
         获取Condition实例：lock.newCondition();
-            Condition类提供了三个方法：
+            Condition 类提供了三个方法：
                 1.await()
                     类似OBject的wait()方法。
                 2.signal()
@@ -294,6 +294,13 @@ Java线程池
                     4.execute(Runnable commond):
                         执行一个任务，没有返回值
 
+                    5.isShutDown()：
+                        调用shutDown()和shutDownNow()方法后返回true
+
+                    6.isTerminated():
+                        调用shutDown()后，当所有提交的任务完成后返回true.
+                        调用shutDownNow()后，成功停止后返回true.
+
 
             这两个返回 ScheduleExecutorService 对象的线程池，该对象是ExecutorService的子类
                 1.newScheduledThreadPool(int corePoolSize):创建具有指定线程数的线程池，可以在指定延迟后执行线程任务
@@ -317,7 +324,7 @@ Java线程池
                             2.通过程序显式取消或终止该任务
 
             这两个返回 work stealing [抢占式的工作] 对象的线程池，Java 8 新增的，能够合理的使用CPU进行对任务的并行操作，适合使用在耗时的任务中
-                1.newWorkStealingPool(int parallelism):创建持有足够的线程的线程池来支持给定的并行级别，该方法还会使用多个队列来减少竞争
+                1.newWorkStealingPool(int parallelism):创建[ForkJoinPool线程池]持有足够的线程的线程池来支持给定的并行级别，该方法还会使用多个队列来减少竞争
                 2.newWorkStrealingPool():
 
             安全关闭线程池：
@@ -367,9 +374,58 @@ Java线程池
                     ThreadPoolExecutor.DiscardPolicy：也是丢弃任务，但是不抛出异常。
                     ThreadPoolExecutor.DiscardOldestPolicy：丢弃队列最前面的任务，然后重新尝试执行任务（重复此过程）
                     ThreadPoolExecutor.CallerRunsPolicy：由调用线程处理该任务
+					
+		ForkJoinPool 线程池（Fork/Join框架，Fork就是将任务拆分，Join就是将结果合并）
+			ForkJoinPool充分利用多CPU的优势，把一个任务拆分成多个"小任务"，把多个"小任务"放到处理器上并行执行，将执行的结果合并起来。
+			
+			ForkJoinPool的工作特点就是"工作窃取"[work steal]。
+			ForkJoinPool使用分治算法。用相对少的线程处理大量的任务，将一个大任务拆分，以此类推，每个子任务再拆分，直到达到设置的阈值停止拆分。然后从最底层的任务开始运行，网上一层层合并结果。
+			需要线执行完子任务才能执行上一层任务。
+			
+			任务的拆分粒度影响执行效率
+			底层维护着一个"双端队列"[deques：double ended queue 的缩写]，当一个线程的任务队列执行完毕后，其他线程的任务队列还没有执行完毕，已执行完毕的线程就会到另一个线程的双端任务队列的尾部去偷取任务来执行。
+			ForkJoinPool也会产生竞争。两个空闲的线程争抢一个资源。
+
+			创建 ForkJoinPool 实例，调用 submit(ForkJoinTask task) 或者 invoke(ForkJoinTask task)或者execute(ForkJoinTask<?> task)执行指定任务
+			    1.execute(ForkJoinTask) 异步执行tasks，无返回值
+                2.invoke(ForkJoinTask) 有Join, tasks会被同步到主进程
+                3.submit(ForkJoinTask) 异步执行，且带Task返回值，可通过task.get 实现同步到主线程
+
+			ForkJoinTask代表一个可以并行，合并的任务
+			ForkJoinTask 有三个实现类：
+				1.RecursiveTask:有返回值的
+				2.RecursiveAction:无返回值的
+				3.CountedCompleter:无返回值任务，任务完成后可以触发回调
+				
+			ThreadPoolExecutor 和 ForkJoinPool 的区别：
+				ThreadPoolExecutor 共用一个任务队列
+				ForkJoinPool 每个线程都有自己的队列
+				
+			ForkJoinPool 适用场景：
+				有限的线程数量下完成有父子关系的计算密集型任务
+				如：快速排序，二分查找，矩阵乘法，线性时间选择等...
+			
 
     配置线程池的大小
         需要根据任务的类型来配置线程池的大小
             1.CPU密集型任务：线程池大小=CPU个数+1
             2.IO密集型任务： 线程池大小=CPU个数*2
         这只是一个参考值，具体的设置还需要根据实际情况进行调整，比如可以先将线程池大小设置为参考值，再观察任务运行情况和系统负载、资源利用率来进行适当调整。
+
+CountDownLatch
+    是JDK提供的多线程间通信的工具，让主线程指定任务完成的进度
+	主要的三个方法：
+		1.void await():
+			调用await()方法的线程会被挂起，他会等待，直到count值为0才继续执行
+			
+		2.Boolean await(long timeout,TimeUnit unit):
+			等待一定时间后count值还没变为0的话就会继续执行调用await()方法线程下面的代码
+			
+		3.void countDown():
+			将count值减1
+
+CountDownLatch和CyclicBarrier的区别：
+	1.CountDownLatch是一个计数器，线程完成一个记录一个，计数器递减，只能使用一次
+	2.CyclicBarrier的计数器更像一个阀门，需要所有线程都到达，然后继续执行，计数器递增，提供reset功能，可以多次使用
+	
+	
