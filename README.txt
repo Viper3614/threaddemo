@@ -427,5 +427,77 @@ CountDownLatch
 CountDownLatch和CyclicBarrier的区别：
 	1.CountDownLatch是一个计数器，线程完成一个记录一个，计数器递减，只能使用一次
 	2.CyclicBarrier的计数器更像一个阀门，需要所有线程都到达，然后继续执行，计数器递增，提供reset功能，可以多次使用
-	
-	
+
+ThreadLocal
+    JDK1.2开始提供的一个用来存储线程本地变量的工具类。
+    ThreadLocal中的变量是在每个线程中独立存在的。当多个线程访问ThreadLocal中的变量时，为每一个使用该变量的线程都提供一个变量值的副本
+    每一个线程都可以独立的改变自己的副本，不会和其他线程的副本冲突。
+    ThreadLocal提供了三个public方法：
+        1.T get():返回此线程局部变量中当前副本的值
+        2.void remove():删除此线程局部变量中当前线程的值
+        3.void set(T value):设置此线程局部变量中当前线程副本中的值
+        4.protected T initialValue()：
+            为这个线程局部变量返回当前线程的“初始值”。该方法将在线程第一次访问该变量时被调用
+            是一个延迟加载方法。在使用时进行重写的。
+    线程间数据隔离的原理：
+        Thread类种的threadLocals和inheritableThreadLocals
+        二者都是ThreadLocalMap类型
+
+    ThreadLocalMap:
+        ThreadLocalMap由ThreadLocal来维护
+        ThreadLocal类中有一个静态内部类，ThreadLocalMap，是实现线程隔离机制的关键。
+        ThreadLocalMap 提供了一种用键值对方法存储每个线程的变量副本的方法。
+            key为当前ThreadLocal对象，
+            value为对应线程的变量副本
+            初始容量为16，超过阈值会扩容
+            ThreadLocalMap中的 Entry 是继承了WeakReference（弱引用，生命周期只能存活到下个GC前）
+                Java中的四种引用类型（JDK1.2之后，对引用的概念进行了扩充）：
+                    1.强引用[Strong Reference]
+                        Java中默认声明的就是强引用。只要强引用存在，GC就永远不会回收被引用的对象。内存不足时，抛出OOM
+                        将显式的强引用赋值为null，则会被GC回收
+
+                    2.软引用[Soft Reference]
+                        内存足够时，软引用对象不会被回收
+                        内存不足时，GC会回收软引用对象。
+                        java.lang.ref.SoftReference 类来表示软引用
+
+                    3.弱引用[Weak Reference]
+                        无论内存是否足够，弱引用关联的对象都会被GC回收
+                        java.lang.ref.WeakReference 类来表示弱引用
+
+                    4.虚引用[Phantom Reference]
+                        若一个独享仅持有虚引用，那么它就和没有任何引用一样，随时可能被回收。必须和引用队列联用。
+                        用 PhantomReference 类来表示
+
+                    5.引用队列[ReferenceQueue]
+                        当GC准备回收对象时，若发现它还有仅有软/弱/虚 引用指向它，就会在回收对象之前把这个 软/弱/虚 对象加入到与之关联的引用队列中。
+                        若一个 软/弱/虚 对象本身在引用队列中，就说明该引用对象所指向的对象被回收了。
+
+            Entry没有next的属性，不是链表结构
+        Hash冲突：
+            ThreadLocalMap采用"线性探测的方式"解决Hash冲突
+              线性探测:
+                简单的步长加1或减1，寻找下一个相邻的位置
+        当创建一个ThreadLocal的时候，会将ThreadLocal对象添加到此Map中。
+
+    ThreadLocal 的内存泄露问题：
+        由于ThreadLocalMap的key是WeakReference，value为强引用
+        ThreadLocal在没有外部对象强引用时，发生GC时弱引用的key会被回收，强引用的Value不会被回收
+        如果创建ThreadLocal的线程一直持续运行（比如，线程池中的线程），那么这个Entry对象中的Value就有可能一直不会被回收，发生内存泄漏
+
+    解决ThreadLocal内存泄漏：
+        1.当线程的某个ThreadLocal 对象使用完毕，马上调用remove()方法，删除Entry对象
+          Java为了减小ThreadLocal内存泄漏的可能和影响，在ThreadLocal的get()和set()的时候，
+          都会检查当前key所指向的对象是否为null，是null则删除对应的value，让它能被GC回收
+        2.将以将ThreadLocal变量定义成private static ，ThreadLocal的生命周期更长，由于一直存在ThreadLocal的强引用，所有ThreadLocal也就不会被回收。
+          能够保证更具ThreadLocal的弱引用key访问到value。
+
+    ThreadLocal与线程同步机制的比较：
+        线程同步机制：
+            通过对象的锁机制保证同一时间只有一个线程去访问变量，该变量是多线程共享的。
+            采用了时间换空间的方式，访问串行化，对象共享化
+
+        ThreadLocal:
+            为每一个线程提供了一个变量副本，从而隔离了多线程访问数据的冲突
+            提供了线程安全的对象封装，可以把不安全的代码封装到ThreadLocal
+            采用了空间换时间的方式，访问并行化，对象独享化
